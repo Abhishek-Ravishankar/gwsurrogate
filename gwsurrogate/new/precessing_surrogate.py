@@ -154,14 +154,14 @@ coprecessing frame to the inertial frame.
 def _eval_scalar_fit(fit_data, fit_params, get_fit_settings):
     """ Evaluates a single scalar fit.
 
-        Arguments: 
+        Arguments:
         ==========
         fit_data: fit data for each specific datapiece
         fit_params: function that takes a numpy array x and returns
                     the fit parameters used to evaluate the surrogate fits.
                     Example: The NRSur7dq4 model converts
                        x=[q, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z]
-                       to 
+                       to
                        x=[np.log(q), chi1x, chi1y, chiHat, chi2x, chi2y, chi_a]
         get_fit_settings: function that provides information about
                           surrogate fits for each specific datapiece.
@@ -181,14 +181,14 @@ def _eval_scalar_fit(fit_data, fit_params, get_fit_settings):
 def _eval_vector_fit(fit_data, size, fit_params, get_fit_settings):
     """ Evaluates a vector fit, where each element is a scalar fit.
 
-        Arguments: 
+        Arguments:
         ==========
         fit_data: fit data for each specific datapiece
         fit_params: function that takes a numpy array x and returns
                     the fit parameters used to evaluate the surrogate fits.
                     Example: The NRSur7dq4 model converts
                        x=[q, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z]
-                       to 
+                       to
                        x=[np.log(q), chi1x, chi1y, chiHat, chi2x, chi2y, chi_a]
         get_fit_settings: function that provides information about
                           surrogate fits for each specific datapiece.
@@ -234,15 +234,15 @@ These time derivatives are given to the AB4 ODE solver.
 
     def __init__(self, h5file, get_fit_params, get_fit_settings,
                  omega_ref_max_model):
-        
+
         """h5file is a h5py.File containing the surrogate data
 
         get_fit_params is a function that takes a numpy array x and returns
         the fit  parameters are used to evaluate the surrogate fits.
-        
+
         get_fit_settings is a function that provides information about
         model-specific surrogate fits.
-        
+
         omega_ref_max_model is the maximium allowable reference dimensionless
         orbital angular frequency supported by the surrogate model."""
         self.t = h5file['t_ds'][()]
@@ -721,8 +721,8 @@ class CoorbitalWaveformSurrogate:
 
         get_fit_params is a function that takes a numpy array x and returns
         the fit  parameters are used to evaluate the surrogate fits.
-        
-        
+
+
         get_fit_settings is a function that provides information about
         model-specific surrogate fits"""
 
@@ -739,9 +739,9 @@ class CoorbitalWaveformSurrogate:
         self.mode_list = []
         for ell in range(2, self.ellMax+1):
             # m=0 has a different file naming convention
-            # If there are no modes, skip. Assumes if group "*_real" exists, then 
+            # If there are no modes, skip. Assumes if group "*_real" exists, then
             # "*_imag" exists as well.
-            if self._check_h5group_exists(h5file,'hCoorb_%s_0_real'%ell): 
+            if self._check_h5group_exists(h5file,'hCoorb_%s_0_real'%ell):
                 #print("Loading (ell=%s,0) mode"%(ell))
                 self.mode_list.append( (ell,0) )
                 for reim in ['real', 'imag']:
@@ -752,7 +752,7 @@ class CoorbitalWaveformSurrogate:
             for m in range(1, ell+1):
                 # If there are no modes, skip. Assumes if group "*_Re+" exists, then
                 # "*_Re-", "*_Im+", and "_Im-" exists as well.
-                if self._check_h5group_exists(h5file,'hCoorb_%s_%s_Re+'%(ell, m)): 
+                if self._check_h5group_exists(h5file,'hCoorb_%s_%s_Re+'%(ell, m)):
                     #print("Loading (ell=%s,m=\pm%s) modes"%(ell, m))
                     self.mode_list.append( (ell,m) )
                     self.mode_list.append( (ell,-m) )
@@ -775,10 +775,10 @@ ellMax: The maximum ell mode to evaluate.
         modes = 1.j*np.zeros((nmodes, len(self.t)))
 
         for ell in range(2, ellMax+1):
-            
-            # NOTE: modes is populated with zeros, so skipping means 
+
+            # NOTE: modes is populated with zeros, so skipping means
             #       "set to zero". This is required for inertial_waveform_modes,
-            #       which maps from coorb to inertial frame modes. 
+            #       which maps from coorb to inertial frame modes.
             # m=0 has a different evaluation pattern
             if (ell,0) in self.mode_list:
                 re = self._eval_comp(self.data['%s_0_real'%(ell)], q, chiA, chiB)
@@ -788,7 +788,7 @@ ellMax: The maximum ell mode to evaluate.
 
             # NOTE: similar to previous for-loop, skipping means "set mode to zero".
             for m in range(1, ell+1):
-                if (ell,m) in self.mode_list:                
+                if (ell,m) in self.mode_list:
                     rep = self._eval_comp(self.data['%s_%s_Re+'%(ell, m)], q, chiA,chiB)
                     rem = self._eval_comp(self.data['%s_%s_Re-'%(ell, m)], q, chiA,chiB)
                     imp = self._eval_comp(self.data['%s_%s_Im+'%(ell, m)], q, chiA,chiB)
@@ -799,7 +799,7 @@ ellMax: The maximum ell mode to evaluate.
                     #print("evaluation ell=%s, m=%s"%(ell,m))
 
         return modes
-    
+
     def _eval_comp(self, data, q, chiA, chiB):
         nodes = []
         for orders, coefs, ni in zip(data['orders'], data['coefs'],
@@ -816,10 +816,10 @@ ellMax: The maximum ell mode to evaluate.
         return np.array(nodes).dot(data['EI_basis'])
 
     def _check_h5group_exists(self, h5file, group_name):
-        """ Check if h5 group GROUP_NAME has valid data to load. 
-        
+        """ Check if h5 group GROUP_NAME has valid data to load.
+
         Returns true or False """
-        
+
         return group_name in h5file
 
 
@@ -1161,7 +1161,7 @@ See the __call__ method on how to evaluate waveforms.
     """
 
     def __init__(self, filename, get_fit_params, get_fit_settings,
-                 ellMax_model,omega_ref_max_model, get_subdomain_ID, 
+                 ellMax_model,omega_ref_max_model, get_subdomain_ID,
                  num_subdomains):
         """Loads the surrogate model data.
 
@@ -1198,7 +1198,7 @@ num_subdomains: The total number of subdomains in the surrogate model.
             self.precessing_sur_dict[case_id] = PrecessingSurrogate(h5file,get_fit_params,self._get_fit_settings_list[case_id],ellMax_model,omega_ref_max_model)
 
         self.mode_list = self.precessing_sur_dict[0].coorb_sur.mode_list
-        
+
         # check each subdomain has the same common data
         common_t_coorb = True
         common_tds     = True
@@ -1207,7 +1207,7 @@ num_subdomains: The total number of subdomains in the surrogate model.
                           self.precessing_sur_dict[0].dynamics_sur.t[6:])
         for subdomain_id in range(self.num_subdomains):
             assert( self.mode_list == self.precessing_sur_dict[subdomain_id].coorb_sur.mode_list )
-    
+
             try:
                 diff = coorb_t_dom0 - self.precessing_sur_dict[subdomain_id].coorb_sur.t
                 if np.max(np.abs(diff)) != 0:
@@ -1341,7 +1341,7 @@ Returns:
         q, chiA0, chiB0 = x
 
         case_id = self._get_subdomain_ID(q, chiA0, chiB0)
-        
+
         return self.precessing_sur_dict[case_id](x, fM_low=fM_low, fM_ref=fM_ref, dtM=dtM,
             timesM=timesM, dfM=dfM, freqsM=freqsM, mode_list=mode_list, ellMax=ellMax,
             precessing_opts=precessing_opts, tidal_opts=tidal_opts, par_dict=par_dict)
