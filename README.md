@@ -76,7 +76,11 @@ In the case of an `homebrew` installation, you may install the package like this
 >>> conda install -c conda-forge gwsurrogate
 ```
 
-Note: As of Feb 9th 2024, installation with Python 3.12 with conda doesn't work. Please use either use Python <= 3.11 or pip instead.
+Note: Installation with Python 3.12 with conda currently doesn't work. Please use either use Python <= 3.11 or pip instead. The following should set up a suitable conda environment to install into:
+
+```bash
+>>> conda create -n MyEnv python=3.11 "numpy<2.0"
+```
 
 ## From source (pip) ##
 
@@ -135,9 +139,15 @@ notebooks.
   [arxiv:2306.03148](https://arxiv.org/abs/2306.03148).
   
 ### Current point-particle blackhole perturbation theory models
-The most up-to-date models trained on point-particle blackhole perturbation data and calibrated to numerical relativity (NR) in the comparable mass regime.
+The most up-to-date models are trained on point-particle blackhole perturbation data and calibrated to numerical relativity (NR) in the comparable mass regime.
 - [BHPTNRSur1dq1e4](https://github.com/sxs-collaboration/gwsurrogate/blob/master/tutorial/website/BHPTNRSur1dq1e4.ipynb):
   Nonspinning BBHs, trained on mass ratios q≤10000 and harmonics up to ell=10. Paper:
+  [arxiv:2204.01972](https://arxiv.org/abs/2204.01972).
+
+### Current effective one body models
+The most up-to-date effective one body surrogate models.
+- [SEOBNRv4PHMSur](https://github.com/sxs-collaboration/gwsurrogate/blob/master/tutorial/website/SEOBNRv4PHM.ipynb):
+  precessing binary black hole with 2<=ell<=5 modes in inertial frame. Trained on mass ratios q ≤20. Paper:
   [arxiv:2204.01972](https://arxiv.org/abs/2204.01972).
 
 ## Download surrogate data and load it
