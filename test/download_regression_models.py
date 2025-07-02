@@ -5,7 +5,7 @@ This is useful to do when using continuous integration. """
 import gwsurrogate as gws
 import hashlib
 import os
-
+import tarfile
 
 def md5(fname):
   """ Compute has from file. code taken from
@@ -23,7 +23,10 @@ models = ['SpEC_q1_10_NoSpin_linear_alt',
 'SpEC_q1_10_NoSpin_linear',
 'NRSur7dq4',
 'NRHybSur2dq15',
-'SEOBNRv4PHMSur'
+'SEOBNRv4PHMSur',
+'EOBNRv2',
+'EMRISur1dq1e4',
+'BHPTNRSur1dq1e4'
 ]
 
 for model in models:
@@ -33,5 +36,5 @@ for model in models:
   path_to_model = gws.catalog.download_path()+os.path.basename(surr_url)
   print("md5 Hash of %s is %s"%(model,md5(path_to_model)))
   if not gws.catalog.is_file_recent(path_to_model):
-     print("File download failed!") 
-     assert(False)
+    print("File download failed!") 
+    assert(False)

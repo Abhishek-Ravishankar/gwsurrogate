@@ -45,6 +45,7 @@ import requests
 from collections import namedtuple
 from time import gmtime, strftime
 from glob import glob
+import tarfile
 
 ### Naming convention: dictionary KEY should match file name KEY.tar.gz ###
 surrogate_info = namedtuple('surrogate_info', ['url', 'desc', 'refs', 'md5'])
@@ -53,13 +54,13 @@ surrogate_info = namedtuple('surrogate_info', ['url', 'desc', 'refs', 'md5'])
 _surrogate_world = {}
 
 _surrogate_world['EOBNRv2'] = \
-  surrogate_info('https://www.dropbox.com/s/uyliuy37uczu3ug/EOBNRv2.tar.gz',
+  surrogate_info('https://www.dropbox.com/scl/fi/8tyein6dmc1mfzmtbp56b/EOBNRv2.tar.gz?rlkey=3j80zg9vn79744p9w9ttemug2&e=1&st=rrp9ubx2&dl=1',
                ''' Collection of single mode surrogates from mass ratios 1 to 10,
                as long as 190000M and modes (2,1), (2,2), (3,3), (4,4), (5,5). This is not
                a true multi-mode surrogate, and relative time/phase information between the
                modes have not been preserved.''',
                '''http://journals.aps.org/prx/abstract/10.1103/PhysRevX.4.031006''',
-               None)
+               'e8c7ded3b533c7b13df973155c36badb')
 
 _surrogate_world['SpEC_q1_10_NoSpin'] = \
   surrogate_info('https://zenodo.org/record/3348115/files/SpEC_q1_10_NoSpin_nu5thDegPoly_exclude_2_0.h5',
@@ -230,7 +231,6 @@ def is_file_recent(filename):
 
   names = get_modelID_from_filename(filename)
   modelID = names[0]
-
   zenodo_current_hash = _surrogate_world[modelID].md5
 
   if file_hash != zenodo_current_hash:
@@ -280,8 +280,10 @@ def _unzip(surr_name,sdir=download_path()):
   """unzip a tar.gz surrogate and remove the tar.gz file"""
 
   os.chdir(sdir)
-  os.system('tar -xvzf '+surr_name)
-  os.remove(surr_name)
+  #os.system('tar -xvzf '+surr_name)
+  #os.remove(surr_name)
+  with tarfile.open(surr_name, "r:gz") as t:
+      t.extractall()   # extracts into the current directory
 
   return sdir+surr_name.split('.')[0]
 

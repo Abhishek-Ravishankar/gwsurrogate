@@ -299,7 +299,7 @@ def test_model_regression(generate_regression_data=False):
                "NRSur4d2s_FDROM_grid12", # 10 GB file
                #"SpEC_q1_10_NoSpin_linear_alt",
                #"SpEC_q1_10_NoSpin_linear",
-               #"EOBNRv2", #TODO: this is two surrogates in one. Break up?
+               "EOBNRv2", #TODO: this is two surrogates in one. Break up?
                #"SpEC_q1_10_NoSpin",
                #"EOBNRv2_tutorial",
                #"NRHybSur3dq8",
@@ -322,7 +322,12 @@ def test_model_regression(generate_regression_data=False):
   for model in models:
     surrogate_data = surrogate_path+os.path.basename(gws.catalog._surrogate_world[model][0])
     if os.path.isfile(surrogate_data): # surrogate data file exists
-      models_to_test[model] = surrogate_data
+      if model == 'EOBNRv2': # dropbox has crazy urls now, breaks stuff which this if fixes
+        models_to_test[model] = surrogate_path+'EOBNRv2' # actually two models in one file - dont test
+      else:
+        models_to_test[model] = surrogate_data
+    elif model in dont_test:
+      msg = "WARNING: skipping model %s which is listed as dont test\n"%model
     else: # file missing 
       msg = "WARNING: Surrogate missing!!!\n"
       msg += "Surrogate data assumed to be in the path %s.\n"%surrogate_data
@@ -331,7 +336,7 @@ def test_model_regression(generate_regression_data=False):
       print(msg)
       time.sleep(1)
       # Comment out following assert if experimenting with model-specific tests
-      #assert(False)
+      assert(False)
       
  
   # also test the tutorial surrogate
