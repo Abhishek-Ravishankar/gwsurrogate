@@ -6,10 +6,10 @@
 
 # Welcome to GWSurrogate! #
 
-GWSurrogate is an easy to use interface to gravitational wave surrogate models.
+GWSurrogate is an easy-to-use interface to gravitational wave surrogate models.
 
 Surrogates provide a fast and accurate evaluation mechanism for gravitational
-waveforms which would otherwise be found through solving differential
+waveforms, which would otherwise be found through solving differential
 equations. These equations must be solved in the ``building" phase, which
 was performed using other codes. 
 
@@ -193,6 +193,44 @@ help(sur)
 Jupyter notebooks located in
 [tutorial/website](https://github.com/sxs-collaboration/gwsurrogate/blob/master/tutorial/website)
 give a more comprehensive overview of individual models.
+
+
+## PyCBC Integration
+
+You can also evaluate any gwsurrogate model through PyCBC’s waveform API.
+
+1. **Install**
+
+   ```bash
+   pip install gwsurrogate pycbc
+   ```
+
+2. **Example Usage**
+
+   ```python
+   from pycbc.waveform import get_td_waveform
+   import gwsurrogate as gws
+   import matplotlib.pyplot as plt
+
+   # PyCBC waveform
+   hp_pcbc, hc_pcbc = get_td_waveform(approximant="GWS-NRSur7dq4",mass1=30, mass2=30, delta_t=1.0/2048,f_lower=20.0,f_ref=20.0)
+
+   # gwsurrogate waveform
+   sur = gws.LoadSurrogate("NRSur7dq4")
+   t, h, dynamics = sur(q=1.0, chiA0=[0, 0, 0], chiB0=[0, 0, 0], M=60.0, dt=1.0/2048, f_low=20.0, dist_mpc=1.0, units="mks", inclination=0.0, phi_ref=0.0, f_ref=20.0)
+
+   # Plot comparison
+   plt.plot(hc_pcbc.sample_times, hp_pcbc, 'b', label='h₊ via PyCBC')
+   plt.plot(t, h.real, 'r--', label='h₊ via gwsurrogate')
+   plt.xlabel("Time [s]")
+   plt.ylabel("Strain")
+   plt.legend()
+   plt.show()
+   ```
+
+3. **Supported Approximants**
+   See the full list of PyCBC entry-point names in [`setup.py`](https://github.com/sxs-collaboration/gwsurrogate/blob/master/setup.py#L52).
+
 
 
 # Tests #
