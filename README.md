@@ -78,7 +78,7 @@ In the case of an `homebrew` installation, you may install the package like this
 
 ## numpy 1.x and 2.x ##
 
-Certain gwsurrogate modules are implemented as C-extensions and require NumPy’s C-API headers at build time. By default, `pip install .` uses the NumPy 2.x headers (as pinned in **pyproject.toml**) but produces binaries that remain compatible with NumPy 1.x at runtime. If you explicitly need to build against NumPy 1.x headers, update the NumPy requirement in **pyproject.toml** before installing.
+Certain gwsurrogate modules are implemented as C-extensions and require NumPy’s C-API headers at build time. By default, `pip install .` uses the NumPy 2.x headers (as pinned in **pyproject.toml**) but produces binaries that remain compatible with NumPy >=1.7 at runtime. If you explicitly need to build against NumPy >=1.7 headers, update the NumPy requirement in **pyproject.toml** before installing.
 
 To create a Conda environment with Python 3.11 and NumPy < 2.0:
 
