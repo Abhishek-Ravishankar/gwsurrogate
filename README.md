@@ -291,7 +291,7 @@ Please also cite the relevant paper(s) describing your specific model. This info
 # NSF Support #
 
 This package is based upon work supported by the National Science Foundation
-under PHY-1316424, PHY-1208861, and PHY-1806665.
+under PHY-1316424, PHY-1208861, PHY-1806665 and AST-2407454.
 
 Any opinions, findings, and conclusions or recommendations expressed in
 gwsurrogate are those of the authors and do not necessarily reflect the
