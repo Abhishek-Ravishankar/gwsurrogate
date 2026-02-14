@@ -551,7 +551,13 @@ class H5Surrogate(SurrogateBaseIO):
           num_fits_phase = self.fitparams_phase.shape[0]
           fitparams_amp = []
           fitparams_phase = []
-          degree = int(self.file[subdir+'degree'][:]) # must be int for scipy (> 1.5.2) splev to work
+          # degree must be int for scipy (> 1.5.2) splev to work.
+          # different h5 files might store degree as either a scalar or array,
+          # and the arrary could be (1,) or (1,1)... 
+          # so additional checks are needed before it can be turned into an int
+          degree = np.asarray( self.file[subdir + 'degree'][()] )
+          assert degree.size == 1, f"{subdir+'degree'} expected 1 value, got shape={degree.shape}, size={degree.size}"
+          degree = int(degree.item())
           for i in range(num_fits_amp):
             fitparams_amp.append([spline_knots_amp[i], self.fitparams_amp[i], degree])
           for i in range(num_fits_phase):
@@ -582,7 +588,13 @@ class H5Surrogate(SurrogateBaseIO):
           num_fits_im = self.fitparams_im.shape[0]
           fitparams_re = []
           fitparams_im = []
-          degree = int(self.file[subdir+'degree'][:]) # must be int for scipy (> 1.5.2) splev to work
+          # degree must be int for scipy (> 1.5.2) splev to work.
+          # different h5 files might store degree as either a scalar or array,
+          # and the arrary could be (1,) or (1,1)... 
+          # so additional checks are needed before it can be turned into an int
+          degree = np.asarray( self.file[subdir + 'degree'][()] )
+          assert degree.size == 1, f"{subdir+'degree'} expected 1 value, got shape={degree.shape}, size={degree.size}"
+          degree = int(degree.item())
           for i in range(num_fits_re):
             fitparams_re.append([spline_knots_re[i], self.fitparams_re[i], degree])
           for i in range(num_fits_im):
@@ -609,7 +621,14 @@ class H5Surrogate(SurrogateBaseIO):
         num_fits = self.fitparams_amp.shape[0]
         fitparams_amp = []
         fitparams_phase = []
-        degree = int(self.file[subdir+'degree'][:]) # must be int for scipy (> 1.5.2) splev to work
+        # degree must be int for scipy (> 1.5.2) splev to work.
+        # different h5 files might store degree as either a scalar or array,
+        # and the arrary could be (1,) or (1,1)... 
+        # so additional checks are needed before it can be turned into an int
+        degree = np.asarray( self.file[subdir + 'degree'][()] )
+        assert degree.size == 1, f"{subdir+'degree'} expected 1 value, got shape={degree.shape}, size={degree.size}"
+        degree = int(degree.item())
+
         for i in range(num_fits):
           fitparams_amp.append([spline_knots, self.fitparams_amp[i,:], degree])
           fitparams_phase.append([spline_knots, self.fitparams_phase[i,:], degree])
@@ -621,7 +640,7 @@ class H5Surrogate(SurrogateBaseIO):
         self.fitparams_amp = np.array(fitparams_amp,dtype=object)
         self.fitparams_phase = np.array(fitparams_phase,dtype=object)
 
-        print("spline knots = %i, num_fits = %i"%(n_spline_knots,num_fits))
+        print(f"spline knots = {n_spline_knots}, num_fits = {num_fits}")
 
         self.amp_fit_func   = my_funcs[self.fit_type_amp]
         self.phase_fit_func = my_funcs[self.fit_type_phase]
