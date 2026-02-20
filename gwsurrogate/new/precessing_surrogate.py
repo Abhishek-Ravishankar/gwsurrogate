@@ -690,10 +690,29 @@ dt_ab4 is [t(i0 + 3) - t(i0 + 2), t(i0 + 2) - t(i0 + 1), t(i0 + 1) - t(i0)]
 
 # Utility functions for the CoorbitalWaveformSurrogate:
 
-def _extract_component_data(h5_group):
+def _extract_component_data(h5_group, basis_tol=None):
     data = {}
-    data['EI_basis'] = h5_group['EIBasis'][()]
-    data['nodeIndices'] = h5_group['nodeIndices'][()]
+
+    if basis_tol is not None:
+        if len(h5_group['nodeIndices'][()]) < basis_tol:
+            raise Exception("basis_tol is larger than the number of basis "
+                    "functions for this component!")
+        elif 'V' not in h5_group.keys():
+            raise Exception("basis_tol is not None, but there is no 'V' in the "
+                    "h5 group, which is required to shorten the basis!")
+        else:
+            print("Shortening %s basis to %s waveforms"%(h5_group.name[1:],basis_tol))
+        slc = np.s_[:basis_tol]
+        EI_Basis = h5_group['EIBasis'][()]
+        V = h5_group['V'][slc,:]
+        RB = V @ EI_Basis
+        V = V[:, slc]
+        data['EI_basis'] = np.linalg.solve(V, RB)
+        data['nodeIndices'] = h5_group['nodeIndices'][slc]
+    else:
+        data['EI_basis'] = h5_group['EIBasis'][()]
+        data['nodeIndices'] = h5_group['nodeIndices'][()]
+    
     data['coefs'] = [h5_group['nodeModelers']['coefs_%s'%(i)][()]
                      for i in range(len(data['nodeIndices']))]
     data['orders'] = [h5_group['nodeModelers']['bfOrders_%s'%(i)][()]
@@ -714,7 +733,7 @@ def _assemble_mode_pair(rep, rem, imp, imm):
 class CoorbitalWaveformSurrogate:
     """This surrogate models the waveform in the coorbital frame."""
 
-    def __init__(self, h5file, get_fit_params, get_fit_settings):
+    def __init__(self, h5file, get_fit_params, get_fit_settings, basis_tol_opts=None):
         """h5file is a h5py.File containing the surrogate data
 
         get_fit_params is a function that takes a numpy array x and returns
@@ -722,7 +741,10 @@ class CoorbitalWaveformSurrogate:
 
 
         get_fit_settings is a function that provides information about
-        model-specific surrogate fits"""
+        model-specific surrogate fits
+        
+        basis_tol_opts is a dictionary of options to pass to shorten the basis.
+        It is only present for compatibility, and is not used in this surrogate."""
 
         self._get_fit_params = get_fit_params
         self._get_fit_settings = get_fit_settings
@@ -845,7 +867,7 @@ class DomainDecomposedCoorbitalWaveformSurrogate:
     """This surrogate models the waveform in the coorbital frame with a two
     subdomains in time"""
 
-    def __init__(self, h5file, get_fit_params, get_fit_settings):
+    def __init__(self, h5file, get_fit_params, get_fit_settings, basis_tol_opts=None):
         """h5file is a h5py.File containing the surrogate data
 
         get_fit_params is a function that takes a numpy array x and returns
@@ -853,7 +875,10 @@ class DomainDecomposedCoorbitalWaveformSurrogate:
 
 
         get_fit_settings is a function that provides information about
-        model-specific surrogate fits"""
+        model-specific surrogate fits
+        
+        basis_tol_opts is a dictionary of datapiece names with corresponding
+        basis sizes to restrict to."""
 
         self._get_fit_params = get_fit_params
         self._get_fit_settings = get_fit_settings
@@ -877,8 +902,12 @@ class DomainDecomposedCoorbitalWaveformSurrogate:
                 for reim in ['real', 'imag']:
                     for subdomain in ['0', '1']:
                         group = h5file['hCoorb_%s_0_%s_subdomain_%s'%(ell, reim, subdomain)]
+                        if 'hCoorb_%s_0_%s_subdomain_%s'%(ell, reim, subdomain) in (basis_tol_opts or {}).keys():
+                            tol = basis_tol_opts['hCoorb_%s_0_%s_subdomain_%s'%(ell, reim, subdomain)]
+                        else:
+                            tol = None
                         self.data['%s_0_%s_sd_%s'%(ell, reim, subdomain)] \
-                                = _extract_component_data(group)
+                                = _extract_component_data(group, basis_tol=tol)
 
             for m in range(1, ell+1):
                 # If there are no modes, skip. Assumes if group "*_Re+" exists, then
@@ -891,7 +920,11 @@ class DomainDecomposedCoorbitalWaveformSurrogate:
                         for pm in ['+', '-']:
                             for subdomain in ['0', '1']:
                                 group = h5file['hCoorb_%s_%s_%s%s_subdomain_%s'%(ell, m, reim, pm, subdomain)]
-                                tmp_data = _extract_component_data(group)
+                                if 'hCoorb_%s_%s_%s%s_subdomain_%s'%(ell, m, reim, pm, subdomain) in (basis_tol_opts or {}).keys():
+                                    tol = basis_tol_opts['hCoorb_%s_%s_%s%s_subdomain_%s'%(ell, m, reim, pm, subdomain)]
+                                else:
+                                    tol = None
+                                tmp_data = _extract_component_data(group, basis_tol=tol)
                                 self.data['%s_%s_%s%s_sd_%s'%(ell, m, reim, pm, subdomain)] = tmp_data
 
     def __call__(self, q, chiA, chiB, ellMax=5):
@@ -1034,7 +1067,7 @@ See the __call__ method on how to evaluate waveforms.
     """
 
     def __init__(self, filename, get_fit_params, get_fit_settings,
-                 ellMax_model,omega_ref_max_model):
+                 ellMax_model,omega_ref_max_model, basis_tol_opts=None):
         """
 Loads the surrogate model data.
 
@@ -1046,6 +1079,11 @@ get_fit_settings: A function that provides information about
 ellMax_model: The maximum ell mode supported by the surrogate model
 omega_ref_max_model: The maximium allowable reference dimensionless
                      orbital angular frequency supported by the surrogate model
+basis_tol_opts: A dictionary of basis tolerances to be used in the coorbital surrogate fits. 
+                    The keys should be the same as the keys in the dictionary returned by 
+                    get_fit_settings("basis_tol_opts"), and the values should be the desired 
+                    basis tolerances to use for this surrogate. If None, uses the basis tolerances 
+                    specified by get_fit_settings("basis_tol_opts").
         """
         if isinstance(filename, h5py._hl.group.Group) or isinstance(filename, h5py._hl.files.File):
             h5file = filename
@@ -1055,6 +1093,8 @@ omega_ref_max_model: The maximium allowable reference dimensionless
         subdomain_dps=[key for key in h5file.keys() if 'subdomain' in key]
         multidomain = len(subdomain_dps) > 0        # Checking if the surrogate uses multiple domains
         if not multidomain:
+            if basis_tol_opts is not None:
+                raise ValueError("basis_tol_opts should be None for single-domain surrogates")
             coorbital_surrogate_class = CoorbitalWaveformSurrogate
         else:
             subdomains = len(set([int(dp.split('_')[-1]) for dp in subdomain_dps]))
@@ -1066,7 +1106,7 @@ omega_ref_max_model: The maximium allowable reference dimensionless
         self.ellMax_model = ellMax_model
         self.omega_ref_max_model = omega_ref_max_model
         self.dynamics_sur = DynamicsSurrogate(h5file,get_fit_params,get_fit_settings,omega_ref_max_model)
-        self.coorb_sur = coorbital_surrogate_class(h5file,get_fit_params,get_fit_settings)
+        self.coorb_sur = coorbital_surrogate_class(h5file,get_fit_params,get_fit_settings,basis_tol_opts=basis_tol_opts)
         self.t_coorb = self.coorb_sur.t
         self.tds = np.append(self.dynamics_sur.t[0:6:2], \
             self.dynamics_sur.t[6:])
