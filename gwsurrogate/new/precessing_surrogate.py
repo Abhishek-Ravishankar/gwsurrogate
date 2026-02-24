@@ -852,8 +852,7 @@ def inertial_waveform_modes(t, orbphase, quat, h_coorb):
     return h_inertial
 
 def splinterp_many(t_out, t_in, many_things):
-    return np.array([_splinterp_Cwrapper(t_out, t_in, thing) \
-            for thing in many_things])
+    return _splinterp_Cwrapper_many(t_out, t_in, many_things)
 
 def mode_sum(h_modes, ellMax, theta, phi):
     coefs = []
