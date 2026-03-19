@@ -948,6 +948,30 @@ ellMax: The maximum ell mode to evaluate.
             q_max_bfOrder, chi_max_bfOrder)
 
     def _call_python(self, q, chiA, chiB, ellMax):
+        if hasattr(self, '_packed'):
+            return self._call_c(q, chiA, chiB, ellMax)
+        return self._call_python(q, chiA, chiB, ellMax)
+
+    def _call_c(self, q, chiA, chiB, ellMax):
+        nmodes = ellMax * ellMax + 2 * ellMax - 3
+        q_fit_offset, q_fit_slope, q_max_bfOrder, chi_max_bfOrder \
+            = self._fit_settings
+        q_consts = self._compute_q_consts(float(q))
+        p = self._packed
+        return _utils.eval_coorb_modes(
+            float(q),
+            np.ascontiguousarray(chiA, dtype=np.float64),
+            np.ascontiguousarray(chiB, dtype=np.float64),
+            p['comp_n_nodes'], p['comp_node_offset'],
+            p['all_node_indices'], p['node_n_coefs'],
+            p['node_coef_offset'], p['all_coefs'],
+            p['all_orders'], p['all_EI_basis'],
+            p['mode_info'], q_consts,
+            nmodes, ellMax, self._fit_params_mode,
+            q_fit_offset, q_fit_slope,
+            q_max_bfOrder, chi_max_bfOrder)
+
+    def _call_python(self, q, chiA, chiB, ellMax):
         nmodes = ellMax*ellMax + 2*ellMax - 3
         modes = np.zeros((nmodes, len(self.t)), dtype=complex)
 

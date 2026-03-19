@@ -255,16 +255,16 @@ dont_test = [# "SEOBNRv4PHMSur",
              # "BHPTNRSur1dq1e4",
              # "EMRISur1dq1e4",
              # "NRHybSur3dq8_CCE",
-             # "NRSur4d2s_TDROM_grid12", # 10 GB file
-             # "NRSur4d2s_FDROM_grid12", # 10 GB file
+             "NRSur4d2s_TDROM_grid12",  # 10 GB file
+             "NRSur4d2s_FDROM_grid12",  # 10 GB file
              # "SpEC_q1_10_NoSpin_linear_alt",
              # "SpEC_q1_10_NoSpin_linear",
-             # "EOBNRv2", #TODO: this is two surrogates in one. Break up?
+             "EOBNRv2",  # TODO: this is two surrogates in one. Break up?
              # "SpEC_q1_10_NoSpin",
              # "EOBNRv2_tutorial",
              # "NRHybSur3dq8",
              # "NRHybSur3dq8Tidal",
-             #"NRSur7dq4"
+             # "NRSur7dq4"
              ]
 
 
@@ -429,7 +429,11 @@ def test_model_regression(model, regression_data, tmp_path):
         except ValueError:
           t, h, dyanmics = sur(q, chiA, chiB, dt = 0.25, f_low=3.e-3, tidal_opts=tidOpts, precessing_opts=pecOpts)
       else:
-        h= sur(x)
+        h = sur(x)
+        try:
+          t = fp_regression[model+"/parameter%i/time"%i][:]
+        except KeyError:
+          t = sur.domain  # FastTensorSplineSurrogate exposes time grid as .domain
       try:
         modes = sur.mode_list
         h_np = [h[mode] for mode in modes]
@@ -498,7 +502,7 @@ def generate_regression_data():
         surrogate_data = surrogate_path+'NRSur7dq4v2.h5'
     if os.path.isfile(surrogate_data): # surrogate data file exists
       if model == 'EOBNRv2': # dropbox has crazy urls now, breaks stuff which this if fixes
-        models_to_test[model] = surrogate_path+'EOBNRv2' # actually two models in one file - dont test
+        gen_models_to_test[model] = surrogate_path+'EOBNRv2' # actually two models in one file - dont test
       else:
         gen_models_to_test[model] = surrogate_data
     elif model in dont_test:

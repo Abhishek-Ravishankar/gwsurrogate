@@ -1,8 +1,30 @@
 import os
+import platform
+import subprocess
 
 from setuptools import setup, Extension
 
 import numpy
+
+# On arm64 macOS, ensure extensions are built for the correct architecture.
+# Detect actual hardware arch (not Rosetta) and add -arch flag directly.
+def _get_arch_flags():
+    if platform.system() != "Darwin":
+        return []
+    # Use sysctl to get the real hardware architecture
+    try:
+        result = subprocess.run(
+            ["sysctl", "-n", "hw.optional.arm64"],
+            capture_output=True, text=True
+        )
+        is_arm64 = result.stdout.strip() == "1"
+    except Exception:
+        is_arm64 = platform.machine() == "arm64"
+    if is_arm64:
+        return ["-arch", "arm64"]
+    return []
+
+_arch_flags = _get_arch_flags()
 
 # all extensions here
 extmods = []
@@ -10,8 +32,10 @@ extmods = []
 # build extension 1: custom spline interpolation (no external deps)
 extmod = Extension(
     "gwsurrogate.spline_interp_Cwrapper._spline_interp",
-    extra_compile_args=["-std=c99"],
-    sources=["gwsurrogate/spline_interp_Cwrapper/_spline_interp.c"],
+    extra_compile_args=["-std=c++14", "-O3"] + _arch_flags,
+    extra_link_args=_arch_flags,
+    language="c++",
+    sources=["gwsurrogate/spline_interp_Cwrapper/_spline_interp.cpp"],
 )
 extmods.append(extmod)
 
@@ -21,7 +45,8 @@ extmod = Extension(
     sources=["gwsurrogate/precessing_utils/src/precessing_utils.c"],
     include_dirs=["gwsurrogate/precessing_utils/include", numpy.get_include()],
     language="c",
-    extra_compile_args=["-std=c99", "-fPIC", "-O3", '-Wcpp'],
+    extra_compile_args=["-std=c99", "-fPIC", "-O3", '-Wcpp'] + _arch_flags,
+    extra_link_args=_arch_flags,
 )
 extmods.append(extmod)
 

@@ -76,6 +76,34 @@ def interpolate(xnew, x, y):
     return ynew
 
 def interpolate_many(xnew, x, y):
+    """Interpolate multiple real-valued datasets sharing the same x-grid.
+
+    Uses natural cubic spline interpolation (y'' = 0 at boundaries).
+
+    Parameters
+    ----------
+    xnew : (M,) array_like, float64
+        Evaluation points. Must lie within ``[x[0], x[-1]]`` (no
+        extrapolation). Sorted ascending is optimal but not required.
+    x : (N,) array_like, float64
+        Knot x-coordinates, strictly monotonically increasing (no
+        duplicates). Must have N >= 3.
+    y : (num_datasets, N) array_like, float64
+        Data values. Each row is an independent dataset sampled at `x`.
+        Must be C-contiguous; will be copied if not already float64.
+
+    Returns
+    -------
+    ynew : (num_datasets, M) ndarray, dtype float64
+        Interpolated values at `xnew` for each dataset.
+
+    Raises
+    ------
+    RuntimeError
+        If the C interpolation routine returns a non-zero error code:
+        out-of-bounds evaluation point, duplicate/non-monotonic knots,
+        fewer than 3 knots, or memory allocation failure.
+    """
     x = x.astype('float64', copy=False)
     y = np.ascontiguousarray(y, dtype='float64')
     xnew = xnew.astype('float64', copy=False)
@@ -83,7 +111,6 @@ def interpolate_many(xnew, x, y):
     num_datasets, n_x = y.shape
 
     x_p = x.ctypes.data_as(POINTER(c_double))
-    y_p = y.ctypes.data_as(POINTER(c_double))
     xnew_p = xnew.ctypes.data_as(POINTER(c_double))
 
     ynew = np.empty((y.shape[0], xnew.shape[0]), dtype='float64')
