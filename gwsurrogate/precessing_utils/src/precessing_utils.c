@@ -470,6 +470,20 @@ static PyObject *eval_fit_batch_dydt(PyObject *self, PyObject *args) {
                      / q_consts[4];
         x_data[6] = (chi1z - chi2z) * 0.5;
     }
+    else if (fit_params_mode == 2 && q_consts_arr != NULL) {
+        /* NRSur7dq4v2: x[0]=log(q), x[1]=(chi1x+chi2x)/2, x[2]=(chi1x-chi2x)/2, x[3]=chiHat, x[4]=(chi1y+chi2y)/2, x[5]=(chi1y-chi2y)/2, x[6]=chi_a */
+        double *q_consts = (double *) PyArray_DATA(q_consts_arr);
+        double chi1z = x_data[3], chi2z = x_data[6], chi1x = x_data[1], chi2x = x_data[4], chi1y = x_data[2], chi2y = x_data[5];
+        x_data[0] = q_consts[0];  /* log(q) */
+        x_data[1] = 0.5 * (chi1x + chi2x);
+        x_data[2] = 0.5 * (chi1x - chi2x);
+        double chi_wtAvg = q_consts[1]*chi1z + q_consts[2]*chi2z;
+        x_data[3] = (chi_wtAvg - q_consts[3]*(chi1z + chi2z))
+                / q_consts[4];
+        x_data[4] = 0.5 * (chi1y + chi2y);
+        x_data[5] = 0.5 * (chi1y - chi2y);
+        x_data[6] = chi1z;
+    }
     /* fit_params_mode == 1: identity, x unchanged */
     /* fit_params_mode == -1: legacy path, x already transformed by Python */
 
@@ -1115,7 +1129,7 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     BUMP_NEED(S, double complex, n);                /* cinv */
 
     /* General-case branch (rewind, may overlap edge-case region) */
-    bump_sizer_restore(&S, saved_S);
+    // bump_sizer_restore(&S, saved_S);
     BUMP_NEED(S, double complex, n);                /* ua */
     BUMP_NEED(S, double complex, n);                /* ub */
     BUMP_NEED(S, double complex, n);                /* ua_inv */
@@ -1597,11 +1611,12 @@ static PyObject *eval_coorb_modes(PyObject *self, PyObject *args) {
     PyArrayObject *all_node_indices_arr, *node_n_coefs_arr, *node_coef_offset_arr;
     PyArrayObject *all_coefs_arr, *all_orders_arr, *all_EI_basis_arr;
     PyArrayObject *mode_info_arr, *q_consts_arr;
+    PyArrayObject *blend_masks = NULL;
     int nmodes, ellMax_eval, fit_params_mode;
     double q_fit_offset, q_fit_slope;
     int q_max_bfOrder, chi_max_bfOrder;
 
-    if (!PyArg_ParseTuple(args, "dO!O!O!O!O!O!O!O!O!O!O!O!iiiddii",
+    if (!PyArg_ParseTuple(args, "dO!O!O!O!O!O!O!O!O!O!O!O!iiiddii|O!",
             &q_val,
             &PyArray_Type, &chiA_arr,
             &PyArray_Type, &chiB_arr,
@@ -1617,7 +1632,8 @@ static PyObject *eval_coorb_modes(PyObject *self, PyObject *args) {
             &PyArray_Type, &q_consts_arr,
             &nmodes, &ellMax_eval, &fit_params_mode,
             &q_fit_offset, &q_fit_slope,
-            &q_max_bfOrder, &chi_max_bfOrder)) return NULL;
+            &q_max_bfOrder, &chi_max_bfOrder,
+            &PyArray_Type, &blend_masks)) return NULL;
 
     /* Extract data pointers */
     double *chiA = (double *)PyArray_DATA(chiA_arr);
@@ -1632,13 +1648,13 @@ static PyObject *eval_coorb_modes(PyObject *self, PyObject *args) {
     double *all_EI_basis = (double *)PyArray_DATA(all_EI_basis_arr);
     npy_int32 *mode_info = (npy_int32 *)PyArray_DATA(mode_info_arr);
     double *q_consts = (double *)PyArray_DATA(q_consts_arr);
-
+    double *blend_masks_data = blend_masks ? (double *)PyArray_DATA(blend_masks) : NULL;
     int n_comps = (int)PyArray_DIMS(comp_n_nodes_arr)[0];
     int n_groups = (int)PyArray_DIMS(mode_info_arr)[0];
     int N_time = (int)PyArray_DIMS(all_EI_basis_arr)[1];
 
     /* Pre-compute q-dependent powers (same for all nodes) */
-    double q_transformed = (fit_params_mode == 0) ? q_consts[0] : q_val;
+    double q_transformed = (fit_params_mode == 0 || fit_params_mode == 2) ? q_consts[0] : q_val;
     double q_powers[16];  /* q_max_bfOrder <= 15 */
     for (int i = 0; i <= q_max_bfOrder; i++) {
         q_powers[i] = ipow(q_fit_offset + q_fit_slope * q_transformed, i);
@@ -1693,6 +1709,20 @@ static PyObject *eval_coorb_modes(PyObject *self, PyObject *args) {
             }
             /* mode == 1: identity, x unchanged */
 
+            if (fit_params_mode == 2) {
+                /* NRSur7dq4v2: x[0]=log(q), x[1]=(chi1x+chi2x)/2, x[2]=(chi1x-chi2x)/2, x[3]=chiHat, x[4]=(chi1y+chi2y)/2, x[5]=(chi1y-chi2y)/2, x[6]=chi_a */
+                double chi1z = x[3], chi2z = x[6], chi1x = x[1], chi2x = x[4], chi1y = x[2], chi2y = x[5];
+                x[0] = q_consts[0];  /* log(q) */
+                x[1] = 0.5 * (chi1x + chi2x);
+                x[2] = 0.5 * (chi1x - chi2x);
+                double chi_wtAvg = q_consts[1]*chi1z + q_consts[2]*chi2z;
+                x[3] = (chi_wtAvg - q_consts[3]*(chi1z + chi2z))
+                        / q_consts[4];
+                x[4] = 0.5 * (chi1y + chi2y);
+                x[5] = 0.5 * (chi1y - chi2y);
+                x[6] = chi1z;
+            }
+
             /* Compute chi_powers (q_powers already done) */
             double chi_powers[42];  /* 6*(max_bfOrder+1), max ~6*7=42 */
             for (int p = 0; p <= chi_max_bfOrder; p++) {
@@ -1730,46 +1760,112 @@ static PyObject *eval_coorb_modes(PyObject *self, PyObject *args) {
     }
 
     /* ---- Phase 2: Assemble complex modes ---- */
-    for (int g = 0; g < n_groups; g++) {
-        npy_int32 *info = mode_info + g * 8;
-        int ell = info[0];
-        int m   = info[1];
+    if (fit_params_mode != 2) {
+        for (int g = 0; g < n_groups; g++) {
+            npy_int32 *info = mode_info + g * 8;
+            int ell = info[0];
+            int m   = info[1];
 
-        if (ell > ellMax_eval) continue;
+            if (ell > ellMax_eval) continue;
 
-        if (m == 0) {
-            int mode_idx = info[2];
-            int comp_re  = info[3];
-            int comp_im  = info[4];
-            double *re = comp_results + (size_t)comp_re * N_time;
-            double *im = comp_results + (size_t)comp_im * N_time;
-            double *dst = modes + (size_t)mode_idx * N_time * 2;
-            for (int t = 0; t < N_time; t++) {
-                dst[t * 2]     = re[t];
-                dst[t * 2 + 1] = im[t];
+            if (m == 0) {
+                int mode_idx = info[2];
+                int comp_re  = info[3];
+                int comp_im  = info[4];
+                double *re = comp_results + (size_t)comp_re * N_time;
+                double *im = comp_results + (size_t)comp_im * N_time;
+                double *dst = modes + (size_t)mode_idx * N_time * 2;
+                for (int t = 0; t < N_time; t++) {
+                    dst[t * 2]     = re[t];
+                    dst[t * 2 + 1] = im[t];
+                }
+            } else {
+                int idx_pos  = info[2];
+                int idx_neg  = info[3];
+                int comp_rep = info[4];
+                int comp_rem = info[5];
+                int comp_imp = info[6];
+                int comp_imm = info[7];
+                double *rep = comp_results + (size_t)comp_rep * N_time;
+                double *rem_d = comp_results + (size_t)comp_rem * N_time;
+                double *imp = comp_results + (size_t)comp_imp * N_time;
+                double *imm = comp_results + (size_t)comp_imm * N_time;
+                double *pos = modes + (size_t)idx_pos * N_time * 2;
+                double *neg = modes + (size_t)idx_neg * N_time * 2;
+                for (int t = 0; t < N_time; t++) {
+                    pos[t * 2]     = rep[t] + rem_d[t];
+                    pos[t * 2 + 1] = imm[t] + imp[t];
+                    neg[t * 2]     = rep[t] - rem_d[t];
+                    neg[t * 2 + 1] = imm[t] - imp[t];
+                }
             }
-        } else {
-            int idx_pos  = info[2];
-            int idx_neg  = info[3];
-            int comp_rep = info[4];
-            int comp_rem = info[5];
-            int comp_imp = info[6];
-            int comp_imm = info[7];
-            double *rep = comp_results + (size_t)comp_rep * N_time;
-            double *rem_d = comp_results + (size_t)comp_rem * N_time;
-            double *imp = comp_results + (size_t)comp_imp * N_time;
-            double *imm = comp_results + (size_t)comp_imm * N_time;
-            double *pos = modes + (size_t)idx_pos * N_time * 2;
-            double *neg = modes + (size_t)idx_neg * N_time * 2;
-            for (int t = 0; t < N_time; t++) {
-                pos[t * 2]     = rep[t] - rem_d[t];
-                pos[t * 2 + 1] = imm[t] - imp[t];
-                neg[t * 2]     = rep[t] + rem_d[t];
-                neg[t * 2 + 1] = imp[t] + imm[t];
+        }
+    } else {
+        /* fit_params_mode == 2: 7dq4v2-specific mode assembly */
+        npy_intp blend_N = 0, blend_T = 0;
+
+        if (PyArray_TYPE(blend_masks) == NPY_DOUBLE && PyArray_ISCARRAY(blend_masks)) {
+        blend_masks_data = (double *)PyArray_DATA(blend_masks);
+        blend_N = PyArray_DIM(blend_masks, 0);
+        blend_T = PyArray_DIM(blend_masks, 1);
+        }
+        else if (blend_masks != NULL) {
+            PyErr_SetString(PyExc_TypeError, "blend_masks must be a C-contiguous 2D array of type float64");
+            free(comp_results);
+            return NULL;
+        }
+        for (int g = 0; g < n_groups; g++) {
+            npy_int32 *info = mode_info + g * 12;
+            int ell = info[0];
+            int m   = info[1];
+
+            if (ell > ellMax_eval) continue;
+
+            if (m==0) {
+                int mode_idx = info[2];
+                int comp_re_sd0  = info[3];
+                int comp_re_sd1  = info[4];
+                int comp_im_sd0  = info[5];
+                int comp_im_sd1  = info[6];
+                double *re_sd0 = comp_results + (size_t)comp_re_sd0 * N_time;
+                double *re_sd1 = comp_results + (size_t)comp_re_sd1 * N_time;
+                double *im_sd0 = comp_results + (size_t)comp_im_sd0 * N_time;
+                double *im_sd1 = comp_results + (size_t)comp_im_sd1 * N_time;
+                double *dst = modes + (size_t)mode_idx * N_time * 2;
+                for (int t = 0; t < N_time; t++) {
+                    dst[t * 2] = re_sd0[t]*blend_masks_data[t] + re_sd1[t]*blend_masks_data[blend_T + t];
+                    dst[t * 2 + 1] = im_sd0[t]*blend_masks_data[t] + im_sd1[t]*blend_masks_data[blend_T + t];
+                }
+            } else {
+                int idx_pos  = info[2];
+                int idx_neg  = info[3];
+                int comp_rep_sd0 = info[4];
+                int comp_rep_sd1 = info[5];
+                int comp_rem_sd0 = info[6];
+                int comp_rem_sd1 = info[7];
+                int comp_imp_sd0 = info[8];
+                int comp_imp_sd1 = info[9];
+                int comp_imm_sd0 = info[10];
+                int comp_imm_sd1 = info[11];
+                double *rep_sd0 = comp_results + (size_t)comp_rep_sd0 * N_time;
+                double *rep_sd1 = comp_results + (size_t)comp_rep_sd1 * N_time;
+                double *rem_d_sd0 = comp_results + (size_t)comp_rem_sd0 * N_time;
+                double *rem_d_sd1 = comp_results + (size_t)comp_rem_sd1 * N_time;
+                double *imp_sd0 = comp_results + (size_t)comp_imp_sd0 * N_time;
+                double *imp_sd1 = comp_results + (size_t)comp_imp_sd1 * N_time;
+                double *imm_sd0 = comp_results + (size_t)comp_imm_sd0 * N_time;
+                double *imm_sd1 = comp_results + (size_t)comp_imm_sd1 * N_time;
+                double *pos = modes + (size_t)idx_pos * N_time * 2;
+                double *neg = modes + (size_t)idx_neg * N_time * 2;
+                for (int t = 0; t < N_time; t++) {
+                    pos[t * 2]     = rep_sd0[t]*blend_masks_data[t] + rep_sd1[t]*blend_masks_data[blend_T + t] + rem_d_sd0[t]*blend_masks_data[t] + rem_d_sd1[t]*blend_masks_data[blend_T + t];
+                    pos[t * 2 + 1] = imm_sd0[t]*blend_masks_data[t] + imm_sd1[t]*blend_masks_data[blend_T + t] + imp_sd0[t]*blend_masks_data[t] + imp_sd1[t]*blend_masks_data[blend_T + t];
+                    neg[t * 2]     = rep_sd0[t]*blend_masks_data[t] + rep_sd1[t]*blend_masks_data[blend_T + t] - rem_d_sd0[t]*blend_masks_data[t] - rem_d_sd1[t]*blend_masks_data[blend_T + t];
+                    neg[t * 2 + 1] = imm_sd0[t]*blend_masks_data[t] + imm_sd1[t]*blend_masks_data[blend_T + t] - imp_sd0[t]*blend_masks_data[t] - imp_sd1[t]*blend_masks_data[blend_T + t];
+                }
             }
         }
     }
-
     free(comp_results);
     return PyArray_Return(modes_arr);
 }

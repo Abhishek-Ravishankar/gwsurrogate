@@ -305,7 +305,7 @@ These time derivatives are given to the AB4 ODE solver.
 
     def _compute_q_consts(self, q):
         """Compute q-dependent constants for C fit_params transform."""
-        if self._fit_params_mode == 0:
+        if self._fit_params_mode == 0 or self._fit_params_mode == 2:
             eta = q / (1.0 + q)**2
             return np.array([
                 np.log(q),
@@ -758,10 +758,10 @@ def _assemble_mode_pair(rep, rem, imp, imm):
     # Pre-allocate two outputs directly to avoid 3 intermediate allocations.
     h_posm = np.empty(len(rep), dtype=np.complex128)
     h_negm = np.empty(len(rep), dtype=np.complex128)
-    h_posm.real = rep - rem    # Re(hplus - hminus)
-    h_posm.imag = imm - imp    # Im((hplus - hminus).conj()) = -Im(hplus - hminus)
-    h_negm.real = rep + rem    # Re(hplus + hminus)
-    h_negm.imag = imp + imm    # Im(hplus + hminus)
+    h_negm.real = rep - rem    # Re(hplus - hminus)
+    h_negm.imag = imm - imp    # Im((hplus - hminus).conj()) = -Im(hplus - hminus)
+    h_posm.real = rep + rem    # Re(hplus + hminus)
+    h_posm.imag = imp + imm    # Im(hplus + hminus)
     return h_posm, h_negm
 
 #########################################################
@@ -875,7 +875,7 @@ class CoorbitalWaveformSurrogate:
                 node_n_coefs_list.append(nc)
                 all_coefs_list.append(d['coefs'][j])
                 all_orders_list.append(
-                        np.asarray(d['orders'][j], dtype=np.int32))
+                        np.asarray(d['orders'][j][:nc], dtype=np.int32))
 
         n_comps = len(comp_keys)
         comp_n_nodes = np.array(comp_n_nodes_list, dtype=np.int32)
@@ -924,30 +924,6 @@ chiA, chiB: The time-dependent spin in the coorbital frame. These should have
             shape (N, 3) where N = len(t_coorb)
 ellMax: The maximum ell mode to evaluate.
         """
-        if hasattr(self, '_packed'):
-            return self._call_c(q, chiA, chiB, ellMax)
-        return self._call_python(q, chiA, chiB, ellMax)
-
-    def _call_c(self, q, chiA, chiB, ellMax):
-        nmodes = ellMax * ellMax + 2 * ellMax - 3
-        q_fit_offset, q_fit_slope, q_max_bfOrder, chi_max_bfOrder \
-            = self._fit_settings
-        q_consts = self._compute_q_consts(float(q))
-        p = self._packed
-        return _utils.eval_coorb_modes(
-            float(q),
-            np.ascontiguousarray(chiA, dtype=np.float64),
-            np.ascontiguousarray(chiB, dtype=np.float64),
-            p['comp_n_nodes'], p['comp_node_offset'],
-            p['all_node_indices'], p['node_n_coefs'],
-            p['node_coef_offset'], p['all_coefs'],
-            p['all_orders'], p['all_EI_basis'],
-            p['mode_info'], q_consts,
-            nmodes, ellMax, self._fit_params_mode,
-            q_fit_offset, q_fit_slope,
-            q_max_bfOrder, chi_max_bfOrder)
-
-    def _call_python(self, q, chiA, chiB, ellMax):
         if hasattr(self, '_packed'):
             return self._call_c(q, chiA, chiB, ellMax)
         return self._call_python(q, chiA, chiB, ellMax)
@@ -1078,6 +1054,7 @@ class DomainDecomposedCoorbitalWaveformSurrogate:
 
         self._get_fit_params = get_fit_params
         self._get_fit_settings = get_fit_settings
+        self._fit_settings = get_fit_settings()   # cached tuple (Opt 1)
 
         self.ellMax = 2
         while 'hCoorb_%s_%s_Re+_subdomain_0'%(self.ellMax+1, self.ellMax+1) in h5file.keys():
@@ -1123,7 +1100,120 @@ class DomainDecomposedCoorbitalWaveformSurrogate:
                                 tmp_data = _extract_component_data(group, basis_tol=tol, verbose=verbose)
                                 self.data['%s_%s_%s%s_sd_%s'%(ell, m, reim, pm, subdomain)] = tmp_data
 
-    def __call__(self, q, chiA, chiB, ellMax=5):
+        # Detect fit_params_mode and pack component data for C path
+        self._fit_params_mode = getattr(get_fit_params, '_cmode', -1)
+        if self._fit_params_mode >= 0:
+            self._pack_component_data()
+
+    def _pack_component_data(self):
+        """Pack variable-length per-component data into flat arrays for C."""
+        comp_keys = []
+        mode_groups = []
+
+        for ell in range(2, self.ellMax + 1):
+            if (ell, 0) in self.mode_list:
+                comp_re_sd0_idx = len(comp_keys)
+                comp_keys.append('%s_0_real_sd_0' % ell)
+                comp_re_sd1_idx = len(comp_keys)
+                comp_keys.append('%s_0_real_sd_1' % ell)
+                comp_im_sd0_idx = len(comp_keys)
+                comp_keys.append('%s_0_imag_sd_0' % ell)
+                comp_im_sd1_idx = len(comp_keys)
+                comp_keys.append('%s_0_imag_sd_1' % ell)
+                mode_idx = ell * (ell + 1) - 4
+                mode_groups.append([ell, 0, mode_idx, comp_re_sd0_idx, comp_re_sd1_idx, 
+                                    comp_im_sd0_idx, comp_im_sd1_idx, 0, 0, 0, 0, 0])
+                # print(F"Mode_groups shapes: {len(mode_groups)}, {len(mode_groups[0])}")
+
+            for m in range(1, ell + 1):
+                if (ell, m) in self.mode_list:
+                    comp_rep_sd0_idx = len(comp_keys)
+                    comp_keys.append('%s_%s_Re+_sd_0' % (ell, m))
+                    comp_rep_sd1_idx = len(comp_keys)
+                    comp_keys.append('%s_%s_Re+_sd_1' % (ell, m))
+                    comp_rem_sd0_idx = len(comp_keys)
+                    comp_keys.append('%s_%s_Re-_sd_0' % (ell, m))
+                    comp_rem_sd1_idx = len(comp_keys)
+                    comp_keys.append('%s_%s_Re-_sd_1' % (ell, m))
+                    comp_imp_sd0_idx = len(comp_keys)
+                    comp_keys.append('%s_%s_Im+_sd_0' % (ell, m))
+                    comp_imp_sd1_idx = len(comp_keys)
+                    comp_keys.append('%s_%s_Im+_sd_1' % (ell, m))
+                    comp_imm_sd0_idx = len(comp_keys)
+                    comp_keys.append('%s_%s_Im-_sd_0' % (ell, m))
+                    comp_imm_sd1_idx = len(comp_keys)
+                    comp_keys.append('%s_%s_Im-_sd_1' % (ell, m))
+                    idx_pos = ell * (ell + 1) - 4 + m
+                    idx_neg = ell * (ell + 1) - 4 - m
+                    mode_groups.append([ell, m, idx_pos, idx_neg,
+                                        comp_rep_sd0_idx, comp_rep_sd1_idx,
+                                        comp_rem_sd0_idx, comp_rem_sd1_idx,
+                                        comp_imp_sd0_idx, comp_imp_sd1_idx,
+                                        comp_imm_sd0_idx, comp_imm_sd1_idx])
+                    # print(F"Mode_groups shapes: {len(mode_groups)}, {len(mode_groups[0])}")
+
+        # Flatten per-component data into contiguous arrays
+        comp_n_nodes_list = []
+        all_node_indices_list = []
+        all_coefs_list = []
+        all_orders_list = []
+        all_EI_basis_list = []
+        node_n_coefs_list = []
+
+        for key in comp_keys:
+            d = self.data[key]
+            nn = len(d['nodeIndices'])
+            comp_n_nodes_list.append(nn)
+            all_node_indices_list.append(
+                    np.asarray(d['nodeIndices'], dtype=np.int32))
+            all_EI_basis_list.append(d['EI_basis'])
+            for j in range(nn):
+                nc = len(d['coefs'][j])
+                node_n_coefs_list.append(nc)
+                all_coefs_list.append(d['coefs'][j])
+                all_orders_list.append(
+                        np.asarray(d['orders'][j][:nc], dtype=np.int32))
+
+        n_comps = len(comp_keys)
+        comp_n_nodes = np.array(comp_n_nodes_list, dtype=np.int32)
+        comp_node_offset = np.zeros(n_comps, dtype=np.int32)
+        if n_comps > 1:
+            comp_node_offset[1:] = np.cumsum(comp_n_nodes[:-1])
+
+        node_n_coefs = np.array(node_n_coefs_list, dtype=np.int32)
+        node_coef_offset = np.zeros(len(node_n_coefs_list), dtype=np.int32)
+        if len(node_n_coefs_list) > 1:
+            node_coef_offset[1:] = np.cumsum(node_n_coefs[:-1])
+
+        self._packed = {
+            'comp_n_nodes': comp_n_nodes,
+            'comp_node_offset': comp_node_offset,
+            'all_node_indices': np.concatenate(all_node_indices_list),
+            'node_n_coefs': node_n_coefs,
+            'node_coef_offset': node_coef_offset,
+            'all_coefs': np.ascontiguousarray(
+                    np.concatenate(all_coefs_list)),
+            'all_orders': np.ascontiguousarray(
+                    np.vstack(all_orders_list).astype(np.int32)),
+            'all_EI_basis': np.ascontiguousarray(
+                    np.vstack(all_EI_basis_list)),
+            'mode_info': np.array(mode_groups, dtype=np.int32),
+        }
+
+    def _compute_q_consts(self, q):
+        """Compute q-dependent constants for C fit_params transform."""
+        if self._fit_params_mode == 2:
+            eta = q / (1.0 + q)**2
+            return np.array([
+                np.log(q),
+                q / (1.0 + q),
+                1.0 / (1.0 + q),
+                38.0 * eta / 113.0,
+                1.0 - 76.0 * eta / 113.0,
+            ])
+        return np.zeros(5)
+
+    def __call__(self, q, chiA, chiB, ellMax=4):
         """
 Evaluates the coorbital waveform modes.
 q: The mass ratio
@@ -1131,6 +1221,31 @@ chiA, chiB: The time-dependent spin in the coorbital frame. These should have
             shape (N, 3) where N = len(t_coorb)
 ellMax: The maximum ell mode to evaluate.
         """
+        if hasattr(self, '_packed'):
+            return self._call_c(q, chiA, chiB, ellMax)
+        return self._call_python(q, chiA, chiB, ellMax)
+
+    def _call_c(self, q, chiA, chiB, ellMax):
+        nmodes = ellMax * ellMax + 2 * ellMax - 3
+        q_fit_offset, q_fit_slope, q_max_bfOrder, chi_max_bfOrder \
+            = self._fit_settings
+        q_consts = self._compute_q_consts(float(q))
+        p = self._packed
+        return _utils.eval_coorb_modes(
+            float(q),
+            np.ascontiguousarray(chiA, dtype=np.float64),
+            np.ascontiguousarray(chiB, dtype=np.float64),
+            p['comp_n_nodes'], p['comp_node_offset'],
+            p['all_node_indices'], p['node_n_coefs'],
+            p['node_coef_offset'], p['all_coefs'],
+            p['all_orders'], p['all_EI_basis'],
+            p['mode_info'], q_consts,
+            nmodes, ellMax, self._fit_params_mode,
+            q_fit_offset, q_fit_slope,
+            q_max_bfOrder, chi_max_bfOrder,
+            self.masks)
+
+    def _call_python(self, q, chiA, chiB, ellMax):
         nmodes = ellMax*ellMax + 2*ellMax - 3
         modes = 1.j*np.zeros((nmodes, len(self.t)))
 
@@ -1163,7 +1278,6 @@ ellMax: The maximum ell mode to evaluate.
                     h_posm_1, h_negm_1 = _assemble_mode_pair(rep_1, rem_1, imp_1, imm_1)
                     modes[ell*(ell+1) - 4 + m] = h_posm_0*self.masks[0] + h_posm_1*self.masks[1]
                     modes[ell*(ell+1) - 4 - m] = h_negm_0*self.masks[0] + h_negm_1*self.masks[1]
-                    #print("evaluation ell=%s, m=%s"%(ell,m))
 
         return modes
 
@@ -1438,7 +1552,6 @@ Returns:
         if precessing_opts is None:
             precessing_opts = {}
 
-        debug_work_stats = precessing_opts.pop('debug_work_stats', False)
 
         init_orbphase = precessing_opts.pop('init_orbphase', 0)
         init_quat = precessing_opts.pop('init_quat', None)
@@ -1449,13 +1562,6 @@ Returns:
             ellMax = self.ellMax_model
         if ellMax > self.ellMax_model:
             raise ValueError("Model only allows ellMax<=%i."%self.ellMax_model)
-        
-        if debug_work_stats:
-            sur = self.coorb_sur
-            cname = type(sur).__name__
-            comps = sur.total_components(ellMax)
-            nodes = sur.total_node_evals(ellMax)
-            print(f"[DEBUG] {cname}: ellMax={ellMax}, components={comps}, total_node_evals={nodes}")
 
         q, chiA0, chiB0 = x
 

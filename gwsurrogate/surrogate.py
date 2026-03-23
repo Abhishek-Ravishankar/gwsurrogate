@@ -2578,6 +2578,11 @@ See the __call__ method on how to evaluate waveforms.
                   chi1z])
             return x
 
+        get_fit_params._cmode = 2  
+        """#FIXME: Ideally, we would want all surrogates with non-trivial parameter transformations 
+        to have contiguous cmodes, but for now I am letting 1 be the trivial parameter transformation
+        and 0 and 2 be the non-trivial parameter transformations for NRSur7dq4 and NRSur7dq4v2, respectively."""
+
         def get_fit_settings():
             """
             These are to rescale the mass ratio fit range
