@@ -1709,7 +1709,7 @@ static PyObject *eval_coorb_modes(PyObject *self, PyObject *args) {
             }
             /* mode == 1: identity, x unchanged */
 
-            if (fit_params_mode == 2) {
+            else if (fit_params_mode == 2) {
                 /* NRSur7dq4v2: x[0]=log(q), x[1]=(chi1x+chi2x)/2, x[2]=(chi1x-chi2x)/2, x[3]=chiHat, x[4]=(chi1y+chi2y)/2, x[5]=(chi1y-chi2y)/2, x[6]=chi_a */
                 double chi1z = x[3], chi2z = x[6], chi1x = x[1], chi2x = x[4], chi1y = x[2], chi2y = x[5];
                 x[0] = q_consts[0];  /* log(q) */
