@@ -1793,10 +1793,10 @@ static PyObject *eval_coorb_modes(PyObject *self, PyObject *args) {
                 double *pos = modes + (size_t)idx_pos * N_time * 2;
                 double *neg = modes + (size_t)idx_neg * N_time * 2;
                 for (int t = 0; t < N_time; t++) {
-                    pos[t * 2]     = rep[t] + rem_d[t];
-                    pos[t * 2 + 1] = imm[t] + imp[t];
-                    neg[t * 2]     = rep[t] - rem_d[t];
-                    neg[t * 2 + 1] = imm[t] - imp[t];
+                    pos[t * 2]     = rep[t] - rem_d[t];
+                    pos[t * 2 + 1] = imm[t] - imp[t];
+                    neg[t * 2]     = rep[t] + rem_d[t];
+                    neg[t * 2 + 1] = imp[t] + imm[t];
                 }
             }
         }
