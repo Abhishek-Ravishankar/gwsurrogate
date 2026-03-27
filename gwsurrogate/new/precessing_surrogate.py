@@ -758,10 +758,10 @@ def _assemble_mode_pair(rep, rem, imp, imm):
     # Pre-allocate two outputs directly to avoid 3 intermediate allocations.
     h_posm = np.empty(len(rep), dtype=np.complex128)
     h_negm = np.empty(len(rep), dtype=np.complex128)
-    h_negm.real = rep - rem    # Re(hplus - hminus)
-    h_negm.imag = imm - imp    # Im((hplus - hminus).conj()) = -Im(hplus - hminus)
-    h_posm.real = rep + rem    # Re(hplus + hminus)
-    h_posm.imag = imp + imm    # Im(hplus + hminus)
+    h_posm.real = rep - rem    # Re(hplus - hminus)
+    h_posm.imag = imm - imp    # Im((hplus - hminus).conj()) = -Im(hplus - hminus)
+    h_negm.real = rep + rem    # Re(hplus + hminus)
+    h_negm.imag = imp + imm    # Im(hplus + hminus)
     return h_posm, h_negm
 
 #########################################################

@@ -1858,10 +1858,10 @@ static PyObject *eval_coorb_modes(PyObject *self, PyObject *args) {
                 double *pos = modes + (size_t)idx_pos * N_time * 2;
                 double *neg = modes + (size_t)idx_neg * N_time * 2;
                 for (int t = 0; t < N_time; t++) {
-                    pos[t * 2]     = rep_sd0[t]*blend_masks_data[t] + rep_sd1[t]*blend_masks_data[blend_T + t] + rem_d_sd0[t]*blend_masks_data[t] + rem_d_sd1[t]*blend_masks_data[blend_T + t];
-                    pos[t * 2 + 1] = imm_sd0[t]*blend_masks_data[t] + imm_sd1[t]*blend_masks_data[blend_T + t] + imp_sd0[t]*blend_masks_data[t] + imp_sd1[t]*blend_masks_data[blend_T + t];
-                    neg[t * 2]     = rep_sd0[t]*blend_masks_data[t] + rep_sd1[t]*blend_masks_data[blend_T + t] - rem_d_sd0[t]*blend_masks_data[t] - rem_d_sd1[t]*blend_masks_data[blend_T + t];
-                    neg[t * 2 + 1] = imm_sd0[t]*blend_masks_data[t] + imm_sd1[t]*blend_masks_data[blend_T + t] - imp_sd0[t]*blend_masks_data[t] - imp_sd1[t]*blend_masks_data[blend_T + t];
+                    pos[t * 2]     = rep_sd0[t]*blend_masks_data[t] + rep_sd1[t]*blend_masks_data[blend_T + t] - rem_d_sd0[t]*blend_masks_data[t] - rem_d_sd1[t]*blend_masks_data[blend_T + t];
+                    pos[t * 2 + 1] = imm_sd0[t]*blend_masks_data[t] + imm_sd1[t]*blend_masks_data[blend_T + t] - imp_sd0[t]*blend_masks_data[t] - imp_sd1[t]*blend_masks_data[blend_T + t];
+                    neg[t * 2]     = rep_sd0[t]*blend_masks_data[t] + rep_sd1[t]*blend_masks_data[blend_T + t] + rem_d_sd0[t]*blend_masks_data[t] + rem_d_sd1[t]*blend_masks_data[blend_T + t];
+                    neg[t * 2 + 1] = imm_sd0[t]*blend_masks_data[t] + imm_sd1[t]*blend_masks_data[blend_T + t] + imp_sd0[t]*blend_masks_data[t] + imp_sd1[t]*blend_masks_data[blend_T + t];
                 }
             }
         }
