@@ -1111,6 +1111,10 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     BUMP_NEED(S, double complex, n);            /* rb_f */
     BUMP_NEED(S, size_t, 3 * n);               /* idx */
 
+    // This is the offset from 'mem' where the general case allocations should start.
+    // It's the current S.offset, aligned.
+    size_t general_case_start_offset_for_sizer = (S.offset + 63) & ~(size_t)63;
+
     BumpSizer saved_S = bump_sizer_save(&S);
 
     /* Edge-case branch */
@@ -1119,6 +1123,8 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
 
     /* General-case branch (rewind, may overlap edge-case region) */
     bump_sizer_restore(&S, saved_S);
+    // Set the sizer's offset to the calculated aligned start for the general case
+    S.offset = general_case_start_offset_for_sizer;
     BUMP_NEED(S, double complex, n);                /* ua */
     BUMP_NEED(S, double complex, n);                /* ub */
     BUMP_NEED(S, double complex, n);                /* ua_inv */
