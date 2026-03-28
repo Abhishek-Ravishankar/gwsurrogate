@@ -1145,7 +1145,8 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     if (!mem){
         fprintf(stderr, "wignerD_matrices: Malloc failed for %zu bytes\n", cap); fflush(stderr);
         return -1;}
-    Bump B = { mem, mem + cap };
+    // Add a small buffer to 'cap' to compensate for BumpSizer's slight underestimation.
+    Bump B = { mem, mem + cap + 1024 };
     fprintf(stderr, "wignerD_matrices: Bump B initialized. B.ptr=%p, B.end=%p\n", (void*)B.ptr, (void*)B.end); fflush(stderr);
 
     /* ---- Log-factorial table ---- */
