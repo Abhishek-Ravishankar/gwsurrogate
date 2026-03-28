@@ -1096,6 +1096,9 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
 {
     if (!q || !matrices || ellMax < 2 || n == 0) return -1;
 
+    // Debugging: Print initial parameters
+    fprintf(stderr, "wignerD_matrices: n=%zu, ellMax=%d\n", n, ellMax); fflush(stderr);
+
     int NL = ellMax - 1, P = 2 * ellMax, PC = 2 * P + 1;
     int lf_size = 2 * ellMax + 2;
 
@@ -1136,14 +1139,18 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     BUMP_NEED(S, double, rec_sz);                   /* d_prev2 */
 
     size_t cap = S.high_water;
+    fprintf(stderr, "wignerD_matrices: Calculated capacity = %zu bytes\n", cap); fflush(stderr);
 
     char *mem = malloc(cap);
-    if (!mem) return -1;
+    if (!mem){
+        fprintf(stderr, "wignerD_matrices: Malloc failed for %zu bytes\n", cap); fflush(stderr);
+        return -1;}
     Bump B = { mem, mem + cap };
+    fprintf(stderr, "wignerD_matrices: Bump B initialized. B.ptr=%p, B.end=%p\n", (void*)B.ptr, (void*)B.end); fflush(stderr);
 
     /* ---- Log-factorial table ---- */
     double *lf = BUMP(B, double, lf_size);
-    if (!lf) { free(mem); return -1; }
+    if (!lf) { fprintf(stderr, "wignerD_matrices: BUMP failed for lf\n"); fflush(stderr); free(mem); return -1; }
     lf[0] = 0.0;
     for (int i = 1; i < lf_size; ++i) lf[i] = lf[i-1] + log((double)i);
 
@@ -1151,7 +1158,7 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     double complex *ra_f = BUMP(B, double complex, n);
     double complex *rb_f = BUMP(B, double complex, n);
     size_t         *idx  = BUMP(B, size_t, 3 * n);
-    if (!ra_f || !rb_f || !idx) { free(mem); return -1; }
+    if (!ra_f || !rb_f || !idx) { fprintf(stderr, "wignerD_matrices: BUMP failed for ra_f/rb_f/idx\n"); fflush(stderr); free(mem); return -1; }
     size_t *i1 = idx, *i2 = idx + n, *i3 = idx + 2*n;
 
     const double *q0=q, *q1=q+n, *q2=q+2*n, *q3=q+3*n;
@@ -1161,10 +1168,20 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
         ra_f[j] = a; rb_f[j] = b;
         double a2 = creal(a)*creal(a) + cimag(a)*cimag(a);
         double b2 = creal(b)*creal(b) + cimag(b)*cimag(b);
+
+        // Debugging: Check for NaN/Inf in a2, b2 for first few samples
+        if (j < 10) { // Only print for first 10 samples to avoid excessive output
+            if (isnan(a2) || isinf(a2) || isnan(b2) || isinf(b2)) {
+                fprintf(stderr, "wignerD_matrices: NaN/Inf detected at sample %zu: a2=%e, b2=%e\n", j, a2, b2); fflush(stderr);
+            }
+        }
+
         if      (a2 < 1e-24) i2[n2++] = j;
         else if (b2 < 1e-24) i3[n3++] = j;
         else                  i1[n1++] = j;
     }
+    fprintf(stderr, "wignerD_matrices: n1=%zu, n2=%zu, n3=%zu\n", n1, n2, n3); fflush(stderr);
+    fprintf(stderr, "wignerD_matrices: B.ptr after initial allocations = %p\n", (void*)B.ptr); fflush(stderr);
 
     /* ---- Zero matrices when edge cases present ---- */
     if (n2 > 0 || n3 > 0) {
@@ -1178,10 +1195,12 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
 
     /* ---- Edge cases ---- */
     char *saved_ptr = B.ptr;
+    fprintf(stderr, "wignerD_matrices: saved_ptr set to %p\n", (void*)saved_ptr); fflush(stderr);
 
     double complex *cpw  = BUMP(B, double complex, (size_t)PC * n);
     double complex *cinv = BUMP(B, double complex, n);
-    if (!cpw || !cinv) { free(mem); return -1; }
+    if (!cpw || !cinv) { fprintf(stderr, "wignerD_matrices: BUMP failed for cpw/cinv. B.ptr=%p\n", (void*)B.ptr); fflush(stderr); free(mem); return -1; }
+    fprintf(stderr, "wignerD_matrices: B.ptr after cpw/cinv allocations = %p\n", (void*)B.ptr); fflush(stderr);
 
     #define DO_EDGE_HC4(ni, ia, base_f, row, col, sgn)                   \
     if (ni > 0) {                                                        \
@@ -1214,6 +1233,7 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     /* ---- General case (i1) ---- */
     if (n1 > 0) {
         B.ptr = saved_ptr;
+        fprintf(stderr, "wignerD_matrices: B.ptr rewound to %p for general case allocations\n", (void*)B.ptr); fflush(stderr);
 
         double complex *ua     = BUMP(B, double complex, n1);
         double complex *ub     = BUMP(B, double complex, n1);
@@ -1237,8 +1257,12 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
 
         if (!ua||!ub||!ua_inv||!ub_inv||!c2||!s2||!cv_arr||!sv_arr||
             !R||!cos_b||!cv_pw||!sv_pw||!ua_pw||!ub_pw||!d_prev||!d_prev2) {
+            // The BumpSizer calculation is slightly off, leading to insufficient memory.
+            // This indicates a bug in the BumpSizer logic (likely in precessing_utils.h).
+            fprintf(stderr, "wignerD_matrices: BUMP failed for general case buffers. B.ptr=%p. Calculated cap was %zu, but needed more.\n", (void*)B.ptr, cap); fflush(stderr);
             free(mem); return -1;
         }
+        fprintf(stderr, "wignerD_matrices: All general case buffers allocated. B.ptr=%p\n", (void*)B.ptr); fflush(stderr);
 
         for (size_t k = 0; k < n1; ++k) {
             double complex a = ra_f[i1[k]], b = rb_f[i1[k]];
