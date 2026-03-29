@@ -1135,7 +1135,7 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     BUMP_NEED(S, double, rec_sz);                   /* d_prev */
     BUMP_NEED(S, double, rec_sz);                   /* d_prev2 */
 
-    size_t cap = S.high_water;
+    size_t cap = S.high_water + 1024;
 
     char *mem = malloc(cap);
     if (!mem) return -1;
