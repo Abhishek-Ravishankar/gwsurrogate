@@ -9,6 +9,8 @@ of the routines are general purpose. A few places may have hard-coded values.
 NOTE: Many of these functions are borrowed from the NR7dq2 python package.
 """
 
+from turtle import mode
+
 import numpy as np
 import h5py
 from gwsurrogate.precessing_utils import _utils
@@ -740,7 +742,7 @@ def _extract_component_data(h5_group, basis_tol=None, verbose=True):
         V = h5_group['V'][slc,:]
         RB = V @ EI_Basis
         V = V[:, slc]
-        data['EI_basis'] = np.linalg.solve(V, RB)
+        data['EI_basis'] = np.ascontiguousarray(np.linalg.solve(V, RB))
         data['nodeIndices'] = h5_group['nodeIndices'][slc]
     else:
         data['EI_basis'] = h5_group['EIBasis'][()]

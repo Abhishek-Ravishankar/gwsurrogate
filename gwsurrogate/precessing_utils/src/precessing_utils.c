@@ -1129,7 +1129,7 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     BUMP_NEED(S, double complex, n);                /* cinv */
 
     /* General-case branch (rewind, may overlap edge-case region) */
-    // bump_sizer_restore(&S, saved_S);
+    bump_sizer_restore(&S, saved_S);
     BUMP_NEED(S, double complex, n);                /* ua */
     BUMP_NEED(S, double complex, n);                /* ub */
     BUMP_NEED(S, double complex, n);                /* ua_inv */
@@ -1149,7 +1149,7 @@ int wignerD_matrices(const double * restrict q, size_t n, int ellMax,
     BUMP_NEED(S, double, rec_sz);                   /* d_prev */
     BUMP_NEED(S, double, rec_sz);                   /* d_prev2 */
 
-    size_t cap = S.high_water;
+    size_t cap = S.high_water + 1024;  // Add some extra space
 
     char *mem = malloc(cap);
     if (!mem) return -1;
